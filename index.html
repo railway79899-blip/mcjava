@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>mcjava.js 啟動器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #0a0a0c;
+            color: #f1f5f9;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            overflow: hidden;
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+
+        input[type='range'] {
+            -webkit-appearance: none;
+            background: #1e1e24;
+            height: 8px;
+            border-radius: 10px;
+        }
+
+        input[type='range']::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 24px;
+            height: 24px;
+            background: #6366f1;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
+        }
+
+        .game-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            background: #000;
+        }
+
+        .game-overlay.active {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar {
+            transition: transform 0.3s ease-in-out;
+        }
+
+        @media (max-width: 1024px) {
+            .sidebar-hidden { transform: translateX(-100%); }
+        }
+
+        .active-nav {
+            background: rgba(99, 102, 241, 0.1);
+            color: #818cf8;
+            border: 1px solid rgba(99, 102, 241, 0.2);
+        }
+
+        .version-card.selected {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: rgba(99, 102, 241, 0.5);
+        }
+    </style>
+</head>
+<body class="h-screen flex overflow-hidden">
+
+    <!-- 內嵌遊戲視窗 -->
+    <div id="gameOverlay" class="game-overlay">
+        <div class="h-14 bg-zinc-900/90 flex items-center justify-between px-6 border-b border-white/10">
+            <div class="flex items-center gap-3">
+                <div class="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></div>
+                <span id="currentGameTitle" class="text-sm font-black tracking-widest text-slate-300">MCJS RUNNING</span>
+            </div>
+            <button onclick="closeGame()" class="flex items-center gap-2 px-5 py-2 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white rounded-full transition-all text-sm font-bold border border-rose-500/20">
+                <i data-lucide="x" class="w-4 h-4"></i>
+                退出遊戲
+            </button>
+        </div>
+        <div class="flex-1">
+            <iframe id="gameIframe" class="w-full h-full border-none" allow="autoplay; fullscreen; keyboard; pointer-lock"></iframe>
+        </div>
+    </div>
+
+    <!-- 背景背景 -->
+    <div class="fixed inset-0 pointer-events-none">
+        <div class="absolute top-[-10%] left-[-5%] w-[50%] h-[50%] bg-indigo-900/10 rounded-full blur-[120px]"></div>
+        <div class="absolute bottom-[-10%] right-[-5%] w-[50%] h-[50%] bg-purple-900/10 rounded-full blur-[120px]"></div>
+    </div>
+
+    <!-- 側邊欄 -->
+    <aside id="sidebar" class="sidebar sidebar-hidden fixed inset-y-0 left-0 z-50 w-72 glass lg:relative lg:translate-x-0 flex flex-col p-8">
+        <div class="flex items-center justify-between mb-12">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                    <i data-lucide="terminal" class="text-white w-6 h-6"></i>
+                </div>
+                <h1 class="text-2xl font-black italic tracking-tighter">mcjava<span class="text-indigo-400">.js</span></h1>
+            </div>
+            <button onclick="toggleSidebar()" class="lg:hidden text-slate-400">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+        </div>
+
+        <nav class="flex-1 space-y-3">
+            <button onclick="switchTab('home')" class="nav-item w-full flex items-center gap-4 px-6 py-4 rounded-2xl active-nav font-bold">
+                <i data-lucide="monitor" class="w-5 h-5"></i><span>主面板</span>
+            </button>
+            <button onclick="switchTab('web')" class="nav-item w-full flex items-center gap-4 px-6 py-4 rounded-2xl text-slate-400 hover:text-white hover:bg-white/5 font-bold">
+                <i data-lucide="globe" class="w-5 h-5"></i><span>網頁遊玩</span>
+            </button>
+            <button onclick="switchTab('versions')" class="nav-item w-full flex items-center gap-4 px-6 py-4 rounded-2xl text-slate-400 hover:text-white hover:bg-white/5 font-bold">
+                <i data-lucide="layers" class="w-5 h-5"></i><span>版本管理</span>
+            </button>
+            <button onclick="switchTab('settings')" class="nav-item w-full flex items-center gap-4 px-6 py-4 rounded-2xl text-slate-400 hover:text-white hover:bg-white/5 font-bold">
+                <i data-lucide="settings" class="w-5 h-5"></i><span>啟動器設定</span>
+            </button>
+        </nav>
+
+        <div class="mt-auto p-4 bg-white/5 rounded-3xl border border-white/5 flex items-center gap-4">
+            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Steve" class="w-10 h-10 rounded-xl bg-slate-800 border border-white/10" alt="Avatar">
+            <div>
+                <p class="font-bold text-sm">Steve_Player</p>
+                <p class="text-[10px] text-emerald-400 font-black tracking-widest">ONLINE</p>
+            </div>
+        </div>
+    </aside>
+
+    <!-- 主要內容 -->
+    <main class="flex-1 flex flex-col h-full overflow-y-auto custom-scrollbar relative">
+        <header class="h-20 px-6 lg:px-10 flex items-center justify-between sticky top-0 z-40 bg-[#0a0a0c]/80 backdrop-blur-xl">
+            <button onclick="toggleSidebar()" class="lg:hidden p-3 bg-white/5 rounded-2xl border border-white/10">
+                <i data-lucide="menu"></i>
+            </button>
+            <div class="hidden md:flex relative items-center">
+                <i data-lucide="search" class="absolute left-4 text-slate-500 w-4 h-4"></i>
+                <input type="text" placeholder="搜尋雲端實例..." class="bg-white/5 border border-white/10 rounded-2xl py-2 pl-12 pr-6 w-64 focus:w-80 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/50">
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="hidden sm:block text-right">
+                    <p class="text-[10px] text-slate-500 font-bold tracking-widest">STABLE RELEASE</p>
+                    <p class="text-xs font-black text-indigo-400">BUILD 2.4.0</p>
+                </div>
+                <button class="p-3 bg-white/5 rounded-2xl border border-white/10"><i data-lucide="bell" class="w-5 h-5"></i></button>
+            </div>
+        </header>
+
+        <div class="p-6 lg:p-10 space-y-10 pb-40">
+            <!-- 橫幅 -->
+            <div class="relative h-60 lg:h-80 rounded-[40px] overflow-hidden group shadow-2xl">
+                <img src="https://images.unsplash.com/photo-1587573089734-09cb69c0f2b4?auto=format&fit=crop&q=80&w=1200" class="w-full h-full object-cover transition-transform duration-[2s] group-hover:scale-110" alt="Minecraft">
+                <div class="absolute inset-0 bg-gradient-to-t from-[#0a0a0c] via-transparent flex flex-col justify-end p-8 lg:p-12">
+                    <h2 class="text-4xl lg:text-5xl font-black italic tracking-tighter mb-2">瀏覽器中的 Java 世界</h2>
+                    <p class="text-slate-300 text-lg font-medium opacity-80 max-w-xl">透過 mcjava.js 技術，在任何裝置上享受最原汁原味的方塊冒險。</p>
+                </div>
+            </div>
+
+            <!-- 網頁版實例 -->
+            <section>
+                <div class="flex items-center gap-3 mb-8">
+                    <div class="w-1.5 h-8 bg-indigo-500 rounded-full"></div>
+                    <h3 class="text-2xl font-black italic">雲端快速啟動</h3>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6" id="webInstances">
+                    <!-- JS 生成卡片 -->
+                </div>
+            </section>
+
+            <!-- 下方區域 -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div class="lg:col-span-2 glass rounded-[40px] p-8">
+                    <h3 class="text-xl font-bold mb-6 flex items-center gap-3"><i data-lucide="clock" class="text-indigo-500"></i>本地版本紀錄</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4" id="localVersions">
+                        <!-- JS 生成列表 -->
+                    </div>
+                </div>
+                <div class="glass rounded-[40px] p-8 space-y-8">
+                    <h3 class="text-xl font-bold flex items-center gap-3"><i data-lucide="cpu" class="text-indigo-500"></i>記憶體調配</h3>
+                    <div>
+                        <div class="flex justify-between mb-4">
+                            <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">RAM Allocation</span>
+                            <span id="ramVal" class="text-lg font-black text-indigo-400">4 GB</span>
+                        </div>
+                        <input type="range" min="2" max="16" value="4" class="w-full" oninput="updateRam(this.value)">
+                        <p class="mt-4 text-[10px] text-slate-500 font-medium">針對平板裝置，建議分配 4GB ~ 6GB 以獲得穩定影格率。</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 底部控制欄 -->
+    <footer class="fixed bottom-0 left-0 right-0 lg:left-72 h-28 bg-[#0a0a0c]/80 backdrop-blur-2xl border-t border-white/5 flex items-center px-8 lg:px-12 z-30">
+        <div class="hidden sm:block">
+            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">Selected Build</p>
+            <p id="selectedVerText" class="text-xl font-black italic">Ver. 1.20.4</p>
+        </div>
+        <div class="flex-1 flex justify-center px-6">
+            <button id="launchBtn" onclick="launchLocal()" class="w-full max-w-lg h-16 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-[24px] font-black text-xl flex items-center justify-center gap-4 transition-all active:scale-95 shadow-2xl shadow-indigo-600/20">
+                <i data-lucide="play" fill="currentColor"></i>
+                <span>啟動本地遊戲</span>
+            </button>
+        </div>
+        <div class="flex items-center gap-3">
+            <button class="w-14 h-14 glass rounded-2xl flex items-center justify-center border border-white/10 active:bg-white/10"><i data-lucide="download"></i></button>
+        </div>
+    </footer>
+
+    <script>
+        const webVersions = [
+            { id: '1.12.2', url: 'https://play.mcjs.cc/1.12.2', tag: '最新', color: 'from-blue-500 to-cyan-500' },
+            { id: '1.8.8', url: 'https://play.mcjs.cc/1.8.8', tag: '經典', color: 'from-emerald-500 to-teal-500' },
+            { id: '1.2.5', url: 'https://play.mcjs.cc/1.2.5', tag: '懷舊', color: 'from-amber-500 to-orange-500' },
+            { id: 'Beta 1.3', url: 'https://play.mcjs.cc/legacy/beta1.3.html', tag: '遺產', color: 'from-rose-500 to-pink-500' }
+        ];
+
+        const localVersions = [
+            { id: '1.20.4', type: 'Release' },
+            { id: '1.19.2', type: 'Forge' },
+            { id: '1.12.2', type: 'Fabric' },
+            { id: '24w12a', type: 'Snapshot' }
+        ];
+
+        let selectedVer = '1.20.4';
+
+        function init() {
+            lucide.createIcons();
+            renderWebInstances();
+            renderLocalVersions();
+        }
+
+        function renderWebInstances() {
+            const container = document.getElementById('webInstances');
+            container.innerHTML = webVersions.map(v => `
+                <div onclick="launchGame('${v.url}', '${v.id}')" class="group glass rounded-[32px] p-6 hover:border-indigo-500/50 transition-all cursor-pointer active:scale-95 shadow-lg">
+                    <div class="flex justify-between items-center mb-6">
+                        <div class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-gradient-to-r ${v.color} text-white shadow-md">${v.tag}</div>
+                        <i data-lucide="zap" class="w-5 h-5 text-slate-600 group-hover:text-indigo-400 group-hover:fill-indigo-400 transition-all"></i>
+                    </div>
+                    <h4 class="text-3xl font-black mb-1 tracking-tighter">MC ${v.id}</h4>
+                    <p class="text-xs text-slate-500 font-bold uppercase tracking-widest mb-8">Cloud JS Runner</p>
+                    <div class="py-4 bg-indigo-600/10 group-hover:bg-indigo-600 text-indigo-400 group-hover:text-white rounded-2xl text-center text-sm font-black transition-all border border-indigo-500/20">進入遊戲</div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function renderLocalVersions() {
+            const container = document.getElementById('localVersions');
+            container.innerHTML = localVersions.map(v => `
+                <button onclick="selectVer('${v.id}')" class="version-card flex items-center p-6 rounded-3xl border transition-all active:scale-95 ${selectedVer === v.id ? 'active-nav' : 'border-transparent bg-white/5'}">
+                    <div class="w-14 h-14 bg-slate-800 rounded-2xl flex items-center justify-center mr-5">
+                        <i data-lucide="layers" class="w-7 h-7 ${selectedVer === v.id ? 'text-indigo-400' : 'text-slate-500'}"></i>
+                    </div>
+                    <div class="text-left">
+                        <p class="text-lg font-black tracking-tight">${v.id}</p>
+                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">${v.type}</p>
+                    </div>
+                </button>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function selectVer(id) {
+            selectedVer = id;
+            document.getElementById('selectedVerText').innerText = 'Ver. ' + id;
+            renderLocalVersions();
+        }
+
+        function launchGame(url, id) {
+            const overlay = document.getElementById('gameOverlay');
+            const iframe = document.getElementById('gameIframe');
+            const title = document.getElementById('currentGameTitle');
+            
+            title.innerText = 'MC ' + id + ' RUNNING';
+            iframe.src = url;
+            overlay.classList.add('active');
+        }
+
+        function closeGame() {
+            const overlay = document.getElementById('gameOverlay');
+            const iframe = document.getElementById('gameIframe');
+            overlay.classList.remove('active');
+            iframe.src = '';
+        }
+
+        function launchLocal() {
+            const btn = document.getElementById('launchBtn');
+            const originalContent = btn.innerHTML;
+            let progress = 0;
+            
+            btn.disabled = true;
+            btn.classList.add('opacity-80');
+            
+            const interval = setInterval(() => {
+                progress += 5;
+                btn.innerHTML = `<div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> 啟動中 ${progress}%`;
+                
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        btn.disabled = false;
+                        btn.classList.remove('opacity-80');
+                        btn.innerHTML = originalContent;
+                    }, 1000);
+                }
+            }, 100);
+        }
+
+        function updateRam(val) {
+            document.getElementById('ramVal').innerText = val + ' GB';
+        }
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('sidebar-hidden');
+        }
+
+        function switchTab(tab) {
+            const items = document.querySelectorAll('.nav-item');
+            items.forEach(item => {
+                item.classList.remove('active-nav');
+                item.classList.add('text-slate-400');
+            });
+            event.currentTarget.classList.add('active-nav');
+            event.currentTarget.classList.remove('text-slate-400');
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
